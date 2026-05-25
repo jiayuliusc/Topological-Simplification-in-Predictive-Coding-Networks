@@ -1,0 +1,8 @@
+[project]
+name = "topological-dl"
+version = "0.1.0"
+description = "Topological analysis utilities for predictive coding network experiments."
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]

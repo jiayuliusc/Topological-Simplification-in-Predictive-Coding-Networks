@@ -1,0 +1,17 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+config/local_config.json
+data/
+results/
+models/
+*.dill
+*.pkl
+*.npz
+*.pth
+*.pt
+optimization.db

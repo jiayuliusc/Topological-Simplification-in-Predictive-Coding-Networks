@@ -58,3 +58,24 @@ trainer = Trainer(
 For scripts run directly from the repository root, the existing scripts add
 `src/` to `sys.path`. For new code, prefer installing the package in editable
 mode once a full dependency environment is available.
+
+## FFN vs PCN COM Comparison
+
+Use [scripts/compare_ffn_pcn_com.py](/Users/john/Desktop/USC/Research/Topological%20DL/codebase/scripts/compare_ffn_pcn_com.py) to compute Ripser diagrams from saved FFN activations and compare bootstrapped mean COM against PCN results.
+
+Example with FFN activations and PCN `Trainer.py`-style Ripser output:
+
+```bash
+python scripts/compare_ffn_pcn_com.py \
+  --ffn-activations-root /path/to/ANN/activations \
+  --pcn-trainer-root /path/to/results/D1 \
+  --pcn-study-template "{arch}_{activation}" \
+  --pcn-dir-name ripser_only_0_k14 \
+  --output-root /path/to/com_comparison_results \
+  --k 14 \
+  --eta 2.5 \
+  --dims 0,1 \
+  --num-seeds 30
+```
+
+If PCN activations or Ripser diagrams are exported in the same folder layout as the FFN activations, use `--pcn-activations-root` or `--pcn-ripser-root` instead.

@@ -63,15 +63,16 @@ mode once a full dependency environment is available.
 
 Use [scripts/compare_ffn_pcn_com.py](/Users/john/Desktop/USC/Research/Topological%20DL/codebase/scripts/compare_ffn_pcn_com.py) to compute Ripser diagrams from saved FFN activations and compare bootstrapped mean COM against PCN results.
 
-Example with FFN activations and PCN `Trainer.py`-style Ripser output:
+Example with FFN activations and PCN `Trainer.py`-style Ripser output.
+Replace the three path arguments with locations on your machine or cluster:
 
 ```bash
 python scripts/compare_ffn_pcn_com.py \
-  --ffn-activations-root /project2/alvinjin_1630/John/ANN/activations \
-  --pcn-results-root /project2/alvinjin_1630/results/D1 \
+  --ffn-activations-root /path/to/ffn/activations \
+  --pcn-results-root /path/to/pcn/results/D1 \
   --pcn-study-template "{arch}_{pcn_activation}" \
   --pcn-dir-name ripser_only_0_k14 \
-  --output-root /project2/alvinjin_1630/John/ANN/com_comparison_results \
+  --output-root /path/to/com_comparison_results \
   --k 14 \
   --eta 2.5 \
   --dims 0,1 \

@@ -67,15 +67,15 @@ Example with FFN activations and PCN `Trainer.py`-style Ripser output:
 
 ```bash
 python scripts/compare_ffn_pcn_com.py \
-  --ffn-activations-root /path/to/ANN/activations \
-  --pcn-trainer-root /path/to/results/D1 \
-  --pcn-study-template "{arch}_{activation}" \
+  --ffn-activations-root /project2/alvinjin_1630/John/ANN/activations \
+  --pcn-results-root /project2/alvinjin_1630/results/D1 \
+  --pcn-study-template "{arch}_{pcn_activation}" \
   --pcn-dir-name ripser_only_0_k14 \
-  --output-root /path/to/com_comparison_results \
+  --output-root /project2/alvinjin_1630/John/ANN/com_comparison_results \
   --k 14 \
   --eta 2.5 \
   --dims 0,1 \
   --num-seeds 30
 ```
 
-If PCN activations or Ripser diagrams are exported in the same folder layout as the FFN activations, use `--pcn-activations-root` or `--pcn-ripser-root` instead.
+By default, `leaky_relu` maps to PCN folders named `*_leaky`, and the script uses the first 30 `model_*.dill` files sorted by numeric model id. Add `--pcn-model-selection range` only if every PCN folder has exactly `model_0.dill` through `model_29.dill`.

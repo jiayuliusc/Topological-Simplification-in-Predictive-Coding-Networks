@@ -80,3 +80,5 @@ python scripts/compare_ffn_pcn_com.py \
 ```
 
 By default, `leaky_relu` maps to PCN folders named `*_leaky`, and the script uses the first 30 `model_*.dill` files sorted by numeric model id. Add `--pcn-model-selection range` only if every PCN folder has exactly `model_0.dill` through `model_29.dill`.
+
+If one architecture/activation pair has fewer than 30 valid FFN or PCN COM values, the script bootstraps the available valid values for that group and records the actual sample sizes in the summary. Add `--on-incomplete-group skip` to skip incomplete groups, or `--on-incomplete-group error` if you want the run to stop immediately instead.

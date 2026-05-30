@@ -13,8 +13,8 @@ Procedure implemented here:
    persistence diagrams, compute COM directly.
 4. Compute one COM value per seed/model with the same
    compute_com_from_diagrams(...) function.
-5. Bootstrap at the seed level: resample 30 FFN COMs and 30 PCN COMs with
-   replacement, compare mean_pcn - mean_ffn, and save summaries.
+5. Bootstrap at the seed level: resample the available FFN and PCN seed-level
+   COMs with replacement, compare mean_pcn - mean_ffn, and save summaries.
 
 The default architecture/activation grid is the overlap requested by the
 project:
@@ -22,12 +22,12 @@ project:
     architectures: 18x8, 24x8, 30x4_12x4, 30x4_18x4, 30x4_24x4, 30x8
     activations:   leaky_relu, relu, tanh
 
-On CARC, a typical command is:
+Example command:
 
     python scripts/compare_ffn_pcn_com.py \
-      --ffn-activations-root /project2/alvinjin_1630/John/ANN/activations \
-      --pcn-results-root /project2/alvinjin_1630/results/D1 \
-      --output-root /project2/alvinjin_1630/John/ANN/com_comparison_results
+      --ffn-activations-root /path/to/ffn/activations \
+      --pcn-results-root /path/to/pcn/results/D1 \
+      --output-root /path/to/com_comparison_results
 """
 
 from __future__ import annotations
@@ -58,6 +58,10 @@ DEFAULT_ARCHITECTURES = (
     "30x8",
 )
 DEFAULT_ACTIVATIONS = ("leaky_relu", "relu", "tanh")
+
+
+class IncompleteGroupError(RuntimeError):
+    """Raised when a requested architecture/activation is missing valid seeds."""
 
 
 def parse_csv(value: str | None, default: tuple[str, ...]) -> list[str]:
@@ -379,6 +383,12 @@ def pcn_model_files(
     return selected
 
 
+def describe_model_ids(paths: list[Path]) -> str:
+    if not paths:
+        return "none"
+    return ",".join(str(model_id_from_path(path)) for path in paths)
+
+
 def build_seed_level_com_table(
     *,
     ffn_activations_root: Path,
@@ -398,6 +408,7 @@ def build_seed_level_com_table(
     use_running_min: bool,
     force_ripser: bool,
     include_ffn_input: bool,
+    on_incomplete_group: str,
 ) -> pd.DataFrame:
     rows = []
     for arch in architectures:
@@ -449,6 +460,7 @@ def build_seed_level_com_table(
                 model_selection=pcn_model_selection,
                 num_seeds=num_seeds,
             )
+            print(f"PCN model ids selected: {describe_model_ids(pcn_files)}")
 
             pcn_coms = []
             for seed_index, model_path in enumerate(tqdm(pcn_files, desc="PCN models")):
@@ -472,7 +484,17 @@ def build_seed_level_com_table(
                     }
                 )
 
-            check_exactly_30(arch, activation, ffn_coms, pcn_coms, expected=num_seeds)
+            try:
+                check_exactly_30(arch, activation, ffn_coms, pcn_coms, expected=num_seeds)
+            except IncompleteGroupError as exc:
+                if on_incomplete_group == "error":
+                    raise
+                action = (
+                    "bootstrapped with available valid COM values"
+                    if on_incomplete_group == "bootstrap"
+                    else "skipped during bootstrap"
+                )
+                print(f"WARNING: {exc} This group will be {action}.")
 
     return pd.DataFrame(rows)
 
@@ -491,10 +513,10 @@ def check_exactly_30(
     pcn_valid = pcn_valid[np.isfinite(pcn_valid)]
 
     if len(ffn_valid) != expected or len(pcn_valid) != expected:
-        raise RuntimeError(
+        raise IncompleteGroupError(
             f"{arch}/{activation} failed sanity check: "
             f"FFN valid COM count={len(ffn_valid)}, PCN valid COM count={len(pcn_valid)}, "
-            f"expected {expected} each. No bootstrap comparison was run for this group."
+            f"expected {expected} each."
         )
 
 
@@ -526,26 +548,30 @@ def bootstrap_compare(
     pcn_coms,
     B: int = 10_000,
     seed: int = 42,
-    sample_size: int = 30,
+    ffn_sample_size: int | None = None,
+    pcn_sample_size: int | None = None,
 ) -> tuple[dict[str, float | str], pd.DataFrame]:
     """Bootstrap one architecture/activation at the seed level."""
     ffn = np.asarray(ffn_coms, dtype=float)
     pcn = np.asarray(pcn_coms, dtype=float)
     ffn = ffn[np.isfinite(ffn)]
     pcn = pcn[np.isfinite(pcn)]
+    if ffn_sample_size is None:
+        ffn_sample_size = int(ffn.size)
+    if pcn_sample_size is None:
+        pcn_sample_size = int(pcn.size)
 
-    if ffn.size != sample_size or pcn.size != sample_size:
+    if ffn.size < 1 or pcn.size < 1:
         raise ValueError(
-            f"Expected exactly {sample_size} FFN and {sample_size} PCN COMs, "
-            f"got {ffn.size}, {pcn.size}"
+            f"Need at least one valid FFN and PCN COM, got {ffn.size}, {pcn.size}"
         )
 
     rng = np.random.default_rng(seed)
     ffn_means = np.empty(B, dtype=float)
     pcn_means = np.empty(B, dtype=float)
     for b in range(B):
-        ffn_means[b] = np.mean(rng.choice(ffn, size=sample_size, replace=True))
-        pcn_means[b] = np.mean(rng.choice(pcn, size=sample_size, replace=True))
+        ffn_means[b] = np.mean(rng.choice(ffn, size=ffn_sample_size, replace=True))
+        pcn_means[b] = np.mean(rng.choice(pcn, size=pcn_sample_size, replace=True))
 
     trials = pd.DataFrame(
         {
@@ -560,6 +586,8 @@ def bootstrap_compare(
         {
             "ffn_observed_mean": float(np.mean(ffn)),
             "pcn_observed_mean": float(np.mean(pcn)),
+            "ffn_bootstrap_sample_size": int(ffn_sample_size),
+            "pcn_bootstrap_sample_size": int(pcn_sample_size),
         }
     )
     return summary, trials
@@ -573,6 +601,7 @@ def build_bootstrap_table(
     B: int,
     seed: int,
     sample_size: int,
+    on_incomplete_group: str,
 ) -> pd.DataFrame:
     rows = []
     bootstrap_dir_rows = []
@@ -585,12 +614,46 @@ def build_bootstrap_table(
             ]
             ffn_coms = group[group["network"] == "ffn"].sort_values("seed_index")["com"].to_numpy()
             pcn_coms = group[group["network"] == "pcn"].sort_values("seed_index")["com"].to_numpy()
+            if len(ffn_coms) != sample_size or len(pcn_coms) != sample_size:
+                message = (
+                    f"{arch}/{activation} has n_ffn={len(ffn_coms)}, "
+                    f"n_pcn={len(pcn_coms)}, expected {sample_size} each."
+                )
+                if on_incomplete_group == "error":
+                    raise IncompleteGroupError(message)
+                if on_incomplete_group == "bootstrap":
+                    print(f"WARNING: bootstrapping available values for {message}")
+                else:
+                    rows.append(
+                        {
+                            "arch": arch,
+                            "activation": activation,
+                            "n_ffn": int(len(ffn_coms)),
+                            "n_pcn": int(len(pcn_coms)),
+                            "status": "skipped_incomplete",
+                            "skip_reason": message,
+                            "ffn_bootstrap_mean": math.nan,
+                            "pcn_bootstrap_mean": math.nan,
+                            "diff_mean_pcn_minus_ffn": math.nan,
+                            "diff_ci_low_95": math.nan,
+                            "diff_ci_high_95": math.nan,
+                            "fraction_pcn_gt_ffn": math.nan,
+                            "decision": "skipped_incomplete",
+                            "ffn_bootstrap_sample_size": math.nan,
+                            "pcn_bootstrap_sample_size": math.nan,
+                        }
+                    )
+                    print(f"WARNING: skipping bootstrap for {message}")
+                    continue
+            status = "ok" if len(ffn_coms) == sample_size and len(pcn_coms) == sample_size else "ok_unequal_n"
+            skip_reason = "" if status == "ok" else message
             summary, trials = bootstrap_compare(
                 ffn_coms,
                 pcn_coms,
                 B=B,
                 seed=seed,
-                sample_size=sample_size,
+                ffn_sample_size=len(ffn_coms),
+                pcn_sample_size=len(pcn_coms),
             )
             summary.update(
                 {
@@ -598,6 +661,8 @@ def build_bootstrap_table(
                     "activation": activation,
                     "n_ffn": int(len(ffn_coms)),
                     "n_pcn": int(len(pcn_coms)),
+                    "status": status,
+                    "skip_reason": skip_reason,
                 }
             )
             rows.append(summary)
@@ -646,6 +711,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--n-bootstrap", type=int, default=10_000)
     parser.add_argument("--bootstrap-seed", type=int, default=42)
     parser.add_argument("--force-ripser", action="store_true")
+    parser.add_argument(
+        "--on-incomplete-group",
+        choices=("bootstrap", "skip", "error"),
+        default="bootstrap",
+        help=(
+            "What to do when a requested architecture/activation has fewer than "
+            "--num-seeds valid FFN or PCN COM values. 'bootstrap' resamples the "
+            "available valid values for that group; 'skip' records seed-level COM "
+            "values and skips only that bootstrap comparison."
+        ),
+    )
     return parser
 
 
@@ -676,6 +752,7 @@ def main() -> None:
         use_running_min=not args.no_running_min,
         force_ripser=args.force_ripser,
         include_ffn_input=args.include_ffn_input,
+        on_incomplete_group=args.on_incomplete_group,
     )
 
     seed_com_path = args.output_root / "seed_level_com.csv"
@@ -688,6 +765,7 @@ def main() -> None:
         B=args.n_bootstrap,
         seed=args.bootstrap_seed,
         sample_size=args.num_seeds,
+        on_incomplete_group=args.on_incomplete_group,
     )
     summary_path = args.output_root / "bootstrap_summary.csv"
     bootstrap_path = args.output_root / "bootstrap_trials.csv"

@@ -2,12 +2,12 @@
 Train an MNIST predictive coding network with Orchard & Sun-style decay.
 
 This file is intentionally a thin notebook-friendly wrapper around helpers
-implemented in `Trainer.py`.
+implemented in the trainer utilities.
 
 Orchard & Sun (2019, arXiv:1910.12151) key idea for generative reconstructions:
 - Add L2 decay on node activities and weights to bias inference toward minimum-norm solutions.
 
-In this codebase, `Trainer.py` provides:
+In the original project code, the trainer utilities provide:
 - `orchard_sun_train_mnist(...)`
 - `orchard_sun_reconstruct_mnist(...)`
 
@@ -175,8 +175,8 @@ def load_trained_model(cfg: Config):
     Load a trained model from disk into a fresh instance.
     Useful if you want to do reconstructions in a separate notebook session.
     """
-    # Delegate to Trainer.py helper: keep this wrapper minimal.
-    # (If you want a pure loader in Trainer.py later, we can add it there too.)
+    # Delegate to the trainer helper: keep this wrapper minimal.
+    # (A pure loader can be added to the trainer utilities later if needed.)
     act_fn = _act_fn(cfg.act)
     _, _, input_dim, output_dim = trainer_mod.load_dataset(cfg.dataset, root=cfg.data_root)
     key = jax.random.PRNGKey(int(cfg.seed))

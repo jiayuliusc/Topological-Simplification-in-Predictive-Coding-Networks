@@ -1,70 +1,67 @@
 # Topological Simplification in Predictive Coding Networks
 
-This repository contains code for studying how predictive coding networks
-(PCNs) and feedforward neural networks (FFNs) transform representation topology
-across layers. The experiments train model ensembles, extract layer
-representations, compute persistent homology on k-nearest-neighbor graph
-metrics, and compare center-of-mass (COM) summaries across architectures.
+This repository contains research code for studying how predictive coding
+networks (PCNs) and feedforward neural networks (FFNs) change the topology of
+their layer representations.
 
-The repository is being prepared as the public code companion for the paper
-*Topological Simplification in Predictive Coding Networks*.
+The main code path compares PCNs and FFNs by:
 
-## Repository Layout
+1. loading saved layer activations or persistence diagrams,
+2. building kNN graph metrics where needed,
+3. running persistent homology,
+4. computing center-of-mass (COM) summaries, and
+5. bootstrapping seed-level COM differences between architectures.
 
-- `src/topological_dl/`: reusable configuration, training, topology, and
-  reconstruction utilities.
-- `scripts/`: command-line workflows for training, persistent homology, COM
-  comparison, and figure generation. See [scripts/README.md](scripts/README.md).
-- `notebooks/`: archived exploratory notebooks grouped by experiment family.
-  Scripts are preferred for reproducible runs. See
-  [notebooks/README.md](notebooks/README.md).
-- `config/local_config.example.json`: template for local paths and optional
-  external dependencies.
-- `docs/`: workflow notes, data layout, and public-release checklist.
+## File structure
 
-Large generated files are intentionally ignored by git. Keep datasets, trained
-models, Ripser outputs, and generated figures under local `data/`, `results/`,
-or user-specified output folders.
-
-## Environment
-
-This repository is research code. It documents the core scripts and expected
-file layouts, but it does not try to provide a universal environment lock file
-for every machine or cluster. Use Python 3.10 or newer, then adapt the
-environment with your preferred tooling. The optional extras in `pyproject.toml`
-are intended as starting points:
-
-```bash
-git clone https://github.com/jiayuliusc/Topological-Simplification-in-Predictive-Coding-Networks.git
-cd Topological-Simplification-in-Predictive-Coding-Networks
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[analysis]"  # COM comparison and figure scripts
+```text
+.
+├── config/
+│   └── local_config.example.json
+├── docs/
+│   ├── artifact_manifest_template.csv
+│   ├── data.md
+│   ├── methods_to_code.md
+│   ├── release_checklist.md
+│   └── replication.md
+├── notebooks/
+│   └── README.md
+├── scripts/
+│   ├── compare_ffn_pcn_com.py
+│   ├── plot_com_comparison_figures.py
+│   ├── compute_mnist_persistent_homology.py
+│   ├── search_mnist_knn_parameters.py
+│   ├── reformat_knn_trial_reports.py
+│   └── README.md
+├── src/topological_dl/
+│   ├── config.py
+│   ├── data_loading.py
+│   ├── pcn_backend.py
+│   ├── pcn_model.py
+│   ├── pcn_training.py
+│   ├── trainer.py
+│   └── trainer_impl.py
+└── tests/
 ```
 
-Other useful extras:
+The `trainer.py` module is kept as a compatibility wrapper. The implementation
+is split across smaller files:
 
-```bash
-python -m pip install -e ".[mnist]"  # MNIST kNN / persistent-homology scripts
-python -m pip install -e ".[torch]"  # simple FFN baseline scripts
-python -m pip install -e ".[pcn]"    # full PCN training utilities
-python -m pip install -e ".[dev]"    # tests and linting
-```
-
-Some PCN training workflows require `pcx` or `pcx2`. If these packages are not
-installed in your environment, point the repository to local checkouts with the
-configuration file or environment variables below.
+- `data_loading.py`: dataset loaders.
+- `pcn_backend.py`: PCX/PCX2 backend imports and shared dependencies.
+- `pcn_model.py`: PCN model and energy functions.
+- `pcn_training.py`: training and evaluation loops.
+- `trainer_impl.py`: `Trainer` class methods and analysis utilities.
 
 ## Configuration
 
-Copy the example config and edit paths for your machine:
+Copy the example config if you want local paths to be picked up automatically:
 
 ```bash
 cp config/local_config.example.json config/local_config.json
 ```
 
-The same values can also be supplied with environment variables:
+You can also set paths with environment variables:
 
 - `TDL_ROOT_DIR`
 - `TDL_DATA_DIR`
@@ -74,34 +71,29 @@ The same values can also be supplied with environment variables:
 - `TDL_RIPSER_PLUSPLUS_DIR`
 - `TDL_USE_PCX2`
 
-The trainer does not change directories, load cluster modules, or assume a
-specific HPC filesystem path at import time.
+`config/local_config.json` is ignored by git. Use it for machine-specific paths
+such as dataset folders, result folders, and local PCX/PCX2 checkouts.
 
-## Typical PCN Usage
+## Environment
 
-```python
-import jax
-from topological_dl.trainer import Trainer
+Use Python 3.10 or newer. The dependency extras in `pyproject.toml` are starting
+points, not lock files:
 
-trainer = Trainer(
-    dataset="MNIST",
-    hidden_dims=[256] * 8,
-    act_fn=jax.nn.relu,
-    study_name="256x8_relu",
-)
+```bash
+python -m pip install -e ".[analysis]"  # COM comparison and figures
+python -m pip install -e ".[mnist]"     # MNIST topology helpers
+python -m pip install -e ".[torch]"     # simple FFN baselines
+python -m pip install -e ".[pcn]"       # PCN trainer utilities
+python -m pip install -e ".[dev]"       # tests and linting
 ```
 
-For scripts run directly from the repository root, the existing scripts add
-`src/` to `sys.path`. Installing the package in editable mode is convenient but
-not required for reading the core implementation.
+PCN training depends on `pcx` or `pcx2`. If those packages are not installed,
+set `TDL_PCX_DIR` or `TDL_PCX2_DIR`, or add the path in
+`config/local_config.json`.
 
-## FFN vs PCN COM Comparison
+## COM comparison
 
-Use `scripts/compare_ffn_pcn_com.py` to compute Ripser diagrams from saved FFN
-activations and compare bootstrapped mean COM against PCN results.
-
-Example with FFN activations and PCN `Trainer`-style Ripser output. Replace the
-three path arguments with locations on your machine or cluster:
+Run the FFN-vs-PCN COM comparison with:
 
 ```bash
 python scripts/compare_ffn_pcn_com.py \
@@ -116,20 +108,21 @@ python scripts/compare_ffn_pcn_com.py \
   --num-seeds 30
 ```
 
-By default, `leaky_relu` maps to PCN folders named `*_leaky`, and the script
-uses the first 30 `model_*.dill` files sorted by numeric model id. Add
-`--pcn-model-selection range` only if every PCN folder has exactly
-`model_0.dill` through `model_29.dill`.
+The script writes:
 
-If one architecture/activation pair has fewer than 30 valid FFN or PCN COM
-values, the script bootstraps the available valid values for that group and
-records the actual sample sizes in the summary. Add `--on-incomplete-group skip`
-to skip incomplete groups, or `--on-incomplete-group error` to stop immediately.
+- `seed_level_com.csv`
+- `bootstrap_summary.csv`
+- `bootstrap_trials.csv`
+- `run_config.json`
+- cached FFN diagrams under `ffn_diagram_cache/`
 
-## Paper Figures
+If a group has unequal sample sizes, for example 30 FFN seeds and 29 PCN
+models, the script bootstraps the available seed-level values and records the
+actual counts.
 
-After running the COM comparison, generate publication-ready PDF/SVG/PNG
-figures:
+## Figures
+
+After the COM comparison finishes, generate figures with:
 
 ```bash
 python scripts/plot_com_comparison_figures.py \
@@ -137,25 +130,20 @@ python scripts/plot_com_comparison_figures.py \
   --output-dir /path/to/com_comparison_results/figures
 ```
 
-The main recommended panel is
-`figure_1_com_difference_forest.pdf`, a forest plot of bootstrap mean
-differences (`PCN - FFN`) with 95% confidence intervals.
+The main figure is `figure_1_com_difference_forest.pdf`, which plots the mean
+COM difference `PCN - FFN` with 95% bootstrap confidence intervals.
 
-## Core Workflow Notes
+## More notes
 
-See [docs/replication.md](docs/replication.md) for the expected result
-directory layout, the COM comparison workflow, and practical notes for adapting
-the analysis on a local machine or cluster. See
-[docs/methods_to_code.md](docs/methods_to_code.md) for a paper-methods to
-script map, and [docs/data.md](docs/data.md) for the artifact policy.
+- `docs/replication.md` describes the expected input/output layouts.
+- `docs/methods_to_code.md` maps analysis questions to scripts.
+- `docs/data.md` explains which artifacts should stay outside git.
+- `scripts/README.md` gives short examples for each script.
+- `notebooks/` contains exploratory notebooks kept for project history.
 
-## Citation
+## Citation and license
 
-Preliminary citation metadata is available in [CITATION.cff](CITATION.cff).
-Update the author list, DOI/arXiv identifier, and release date before the
-public release.
+`CITATION.cff` is a placeholder. Update it with the final author list and
+arXiv/DOI information before public release.
 
-## License
-
-Add a license before public release. Until a license is added, the code is not
-formally licensed for reuse.
+Add a license before making the repository public.

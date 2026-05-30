@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite the associated arXiv paper once available."
+title: "Topological Simplification in Predictive Coding Networks"
+type: software
+repository-code: "https://github.com/jiayuliusc/Topological-Simplification-in-Predictive-Coding-Networks"
+abstract: "Code for analyzing topological simplification in predictive coding and feedforward neural networks."
+authors:
+  - family-names: "TBD"
+    given-names: "TBD"
+date-released: "2026-05-30"
+version: "0.1.0"

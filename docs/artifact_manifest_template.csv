@@ -1,0 +1,6 @@
+artifact_name,description,required_for,expected_path_or_argument,source_or_archive_url,checksum_sha256,notes
+synthetic_d1_dataset,Synthetic two-class manifold dataset with points and labels,FFN/PCN synthetic experiments,--dataset or TDL_RESULTS_DIR/D1/full_dataset.npz,,,"Fill after public artifact archive is created."
+ffn_activations,Saved FFN layer activation folders,FFN vs PCN COM comparison,--ffn-activations-root,,,"Directory layout documented in docs/replication.md."
+pcn_ripser_outputs,PCN model_*.dill persistence diagrams,FFN vs PCN COM comparison,--pcn-results-root,,,"Directory layout documented in docs/replication.md."
+mnist_class_data,Class-specific MNIST subsets label_*_1500.dill,MNIST persistent homology,--data-dir,,,"Can be regenerated from MNIST if generation script is included."
+trained_pcn_models,Trained PCN model checkpoints,MNIST/synthetic PCN analyses,TDL_RESULTS_DIR,,,"Archive if retraining is expensive."

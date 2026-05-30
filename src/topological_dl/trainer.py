@@ -22,18 +22,27 @@ import jax.tree_util as jtu
 import jax.numpy as jnp
 import equinox as eqx
 
-if USE_PCX2:
-    import pcx2 as px
-    import pcx2.predictive_coding as pxc
-    import pcx2.nn as pxnn
-    import pcx2.functional as pxf
-    import pcx2.utils as pxu
-else:
-    import pcx as px
-    import pcx.predictive_coding as pxc
-    import pcx.nn as pxnn
-    import pcx.functional as pxf
-    import pcx.utils as pxu
+try:
+    if USE_PCX2:
+        import pcx2 as px
+        import pcx2.predictive_coding as pxc
+        import pcx2.nn as pxnn
+        import pcx2.functional as pxf
+        import pcx2.utils as pxu
+    else:
+        import pcx as px
+        import pcx.predictive_coding as pxc
+        import pcx.nn as pxnn
+        import pcx.functional as pxf
+        import pcx.utils as pxu
+except ModuleNotFoundError as exc:
+    package_name = "pcx2" if USE_PCX2 else "pcx"
+    path_var = "TDL_PCX2_DIR" if USE_PCX2 else "TDL_PCX_DIR"
+    raise ModuleNotFoundError(
+        f"Could not import {package_name}. Install {package_name}, set {path_var}, "
+        "or edit config/local_config.json to point to a local checkout. "
+        "See docs/replication.md for configuration details."
+    ) from exc
 
 import torch
 from torch.utils.data import DataLoader, Dataset, TensorDataset, Subset, ConcatDataset
@@ -785,9 +794,10 @@ class Trainer:
         dashboard_thread.start()
         time.sleep(3)  # Give it time to start
         
-        print('Run the following command in your local terminal on YOUR MACHINE, not in the cluster:')
-        print(f'ssh -L {port}:{socket.gethostname()}:{port} {{YOUR USERNAME}}@discovery.usc.edu')
-        print(f'Once you enter the cluster from your terminal, navigate to http://localhost:{port} in a web browser')
+        ssh_host = os.getenv("TDL_SSH_HOST", "<username>@<cluster-login-host>")
+        print("Run the following command in your local terminal, not on the compute node:")
+        print(f"ssh -L {port}:{socket.gethostname()}:{port} {ssh_host}")
+        print(f"Then open http://localhost:{port} in a web browser.")
 
     def run_optuna(
         self,

@@ -1,4 +1,4 @@
-import os
+import argparse
 import re
 import glob
 from io import StringIO
@@ -36,7 +36,7 @@ def reformat_trial_files(
     input_dir = Path(input_dir) if input_dir is not None else CONFIG.root_dir / "mnist_class_trials"
     output_dir = Path(output_dir) if output_dir is not None else dataset_results_dir("MNIST") / "knn_trials_by_class"
 
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     trial_paths = sorted(glob.glob(os.path.join(input_dir, trial_glob)))
     if not trial_paths:
@@ -177,7 +177,7 @@ def reformat_trial_files(
         # Sort so all k=3 together, then k=4, etc. (trial within k)
         wide = wide.sort_values(["k", "trial"]).reset_index(drop=True)
 
-        out_path = os.path.join(output_dir, f"digit_{digit}_wide_trials_by_k.csv")
+        out_path = output_dir / f"digit_{digit}_wide_trials_by_k.csv"
         wide.to_csv(out_path, index=False)
         wrote_any = True
 
@@ -187,5 +187,21 @@ def reformat_trial_files(
     print(f"Done. Wrote per-class wide files to: {output_dir}")
 
 
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Reformat report-style MNIST kNN trial outputs into per-digit wide CSVs.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("--input-dir", type=Path, default=CONFIG.root_dir / "mnist_class_trials")
+    parser.add_argument("--output-dir", type=Path, default=dataset_results_dir("MNIST") / "knn_trials_by_class")
+    parser.add_argument("--trial-glob", default="trial_*_all_classes.csv")
+    return parser
+
+
 if __name__ == '__main__':
-    reformat_trial_files()
+    args = build_parser().parse_args()
+    reformat_trial_files(
+        input_dir=args.input_dir,
+        output_dir=args.output_dir,
+        trial_glob=args.trial_glob,
+    )

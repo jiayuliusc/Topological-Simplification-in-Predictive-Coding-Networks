@@ -22,13 +22,27 @@ from dataclasses import dataclass
 from pathlib import Path
 import sys
 
-import jax
-import jax.numpy as jnp
-
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from topological_dl.config import CONFIG, dataset_results_dir
-import Trainer_orchard as trainer_mod
+trainer_mod = None
+
+
+def _load_trainer_orchard():
+    global trainer_mod
+    if trainer_mod is not None:
+        return trainer_mod
+    try:
+        import Trainer_orchard as loaded_trainer_mod
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "generate_mnist_orchard_reconstructions.py is a legacy wrapper that "
+            "requires an external Trainer_orchard.py module. It is retained for "
+            "provenance, but it is not currently a self-contained public "
+            "replication entry point."
+        ) from exc
+    trainer_mod = loaded_trainer_mod
+    return trainer_mod
 
 
 @dataclass(frozen=True)
@@ -83,6 +97,8 @@ class Config:
 
 
 def _act_fn(name: str):
+    import jax
+
     name = name.lower()
     if name == "tanh":
         return jax.nn.tanh
@@ -91,6 +107,7 @@ def _act_fn(name: str):
     raise ValueError(f"Unsupported act: {name}")
 
 def train_pcn(cfg: Config):
+    trainer_mod = _load_trainer_orchard()
     act_name = cfg.act
     act_fn = _act_fn(act_name)
     model, run_info = trainer_mod.orchard_sun_train_mnist(
@@ -151,6 +168,9 @@ def build_orchard_sun_run_id(config: Config) -> str:
 
 
 def load_trained_model(cfg: Config):
+    trainer_mod = _load_trainer_orchard()
+    import jax
+    import jax.numpy as jnp
     """
     Load a trained model from disk into a fresh instance.
     Useful if you want to do reconstructions in a separate notebook session.
@@ -203,6 +223,7 @@ def _reconstruct_with_trainer_utils(
     save_npz: bool = False,
     save_png: bool = False,
 ) -> None:
+    trainer_mod = _load_trainer_orchard()
     _ = trainer_mod.orchard_sun_reconstruct_mnist(
         model=model,
         label=label,

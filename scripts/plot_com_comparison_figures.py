@@ -86,6 +86,119 @@ def load_results(results_root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.Dat
     return summary, seed_level, trials
 
 
+def summarize_bootstrap_trials(trials: pd.DataFrame) -> dict[str, float | str]:
+    diff = trials["diff_pcn_minus_ffn"].to_numpy(dtype=float)
+    ffn_means = trials["ffn_mean"].to_numpy(dtype=float)
+    pcn_means = trials["pcn_mean"].to_numpy(dtype=float)
+    ci_low, ci_high = np.quantile(diff, [0.025, 0.975])
+    if ci_low > 0:
+        decision = "pcn_larger"
+    elif ci_high < 0:
+        decision = "ffn_larger"
+    else:
+        decision = "unclear"
+
+    return {
+        "ffn_bootstrap_mean": float(np.mean(ffn_means)),
+        "pcn_bootstrap_mean": float(np.mean(pcn_means)),
+        "diff_mean_pcn_minus_ffn": float(np.mean(diff)),
+        "diff_ci_low_95": float(ci_low),
+        "diff_ci_high_95": float(ci_high),
+        "fraction_pcn_gt_ffn": float(np.mean(diff > 0)),
+        "decision": decision,
+    }
+
+
+def bootstrap_from_seed_level(
+    ffn_coms: np.ndarray,
+    pcn_coms: np.ndarray,
+    *,
+    n_bootstrap: int,
+    seed: int,
+) -> tuple[dict[str, float | str], pd.DataFrame]:
+    rng = np.random.default_rng(seed)
+    ffn_coms = np.asarray(ffn_coms, dtype=float)
+    pcn_coms = np.asarray(pcn_coms, dtype=float)
+    ffn_coms = ffn_coms[np.isfinite(ffn_coms)]
+    pcn_coms = pcn_coms[np.isfinite(pcn_coms)]
+    if len(ffn_coms) == 0 or len(pcn_coms) == 0:
+        raise ValueError("Need at least one FFN and one PCN COM value.")
+
+    ffn_means = np.empty(n_bootstrap, dtype=float)
+    pcn_means = np.empty(n_bootstrap, dtype=float)
+    for trial in range(n_bootstrap):
+        ffn_means[trial] = rng.choice(ffn_coms, size=len(ffn_coms), replace=True).mean()
+        pcn_means[trial] = rng.choice(pcn_coms, size=len(pcn_coms), replace=True).mean()
+
+    trials = pd.DataFrame(
+        {
+            "trial": np.arange(n_bootstrap, dtype=int),
+            "ffn_mean": ffn_means,
+            "pcn_mean": pcn_means,
+            "diff_pcn_minus_ffn": pcn_means - ffn_means,
+        }
+    )
+    summary = summarize_bootstrap_trials(trials)
+    summary.update(
+        {
+            "ffn_observed_mean": float(np.mean(ffn_coms)),
+            "pcn_observed_mean": float(np.mean(pcn_coms)),
+            "ffn_bootstrap_sample_size": int(len(ffn_coms)),
+            "pcn_bootstrap_sample_size": int(len(pcn_coms)),
+        }
+    )
+    return summary, trials
+
+
+def complete_available_comparisons(
+    summary: pd.DataFrame,
+    seed_level: pd.DataFrame,
+    trials: pd.DataFrame,
+    *,
+    n_bootstrap: int,
+    bootstrap_seed: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Fill old skipped rows by bootstrapping available seed-level COM values."""
+    summary = summary.copy()
+    trials = trials.copy()
+    valid_statuses = {"ok", "ok_unequal_n"}
+
+    for idx, row in summary.iterrows():
+        if row.get("status") in valid_statuses and np.isfinite(row.get("diff_mean_pcn_minus_ffn", np.nan)):
+            continue
+
+        arch = row["arch"]
+        activation = row["activation"]
+        group = seed_level[
+            (seed_level["arch"] == arch)
+            & (seed_level["activation"] == activation)
+            & (seed_level["valid_com"])
+        ]
+        ffn_coms = group[group["network"] == "ffn"].sort_values("seed_index")["com"].to_numpy()
+        pcn_coms = group[group["network"] == "pcn"].sort_values("seed_index")["com"].to_numpy()
+        if len(ffn_coms) == 0 or len(pcn_coms) == 0:
+            continue
+
+        replacement_summary, replacement_trials = bootstrap_from_seed_level(
+            ffn_coms,
+            pcn_coms,
+            n_bootstrap=n_bootstrap,
+            seed=bootstrap_seed,
+        )
+        for key, value in replacement_summary.items():
+            summary.loc[idx, key] = value
+        summary.loc[idx, "n_ffn"] = int(len(ffn_coms))
+        summary.loc[idx, "n_pcn"] = int(len(pcn_coms))
+        summary.loc[idx, "status"] = "ok" if len(ffn_coms) == len(pcn_coms) else "ok_unequal_n"
+        summary.loc[idx, "skip_reason"] = ""
+
+        replacement_trials.insert(0, "activation", activation)
+        replacement_trials.insert(0, "arch", arch)
+        trials = pd.concat([trials, replacement_trials], ignore_index=True)
+
+    return summary, trials
+
+
 def ordered_summary(summary: pd.DataFrame) -> pd.DataFrame:
     out = summary.copy()
     out["arch"] = pd.Categorical(out["arch"], ARCH_ORDER, ordered=True)
@@ -132,24 +245,6 @@ def plot_difference_forest(
         ypos = y_positions[(arch, activation)]
         color = PALETTE[activation]
         if row.get("status") not in ["ok", "ok_unequal_n"] or not np.isfinite(row["diff_mean_pcn_minus_ffn"]):
-            ax.scatter(
-                0,
-                ypos,
-                marker="x",
-                s=32,
-                color="#777777",
-                linewidth=1.2,
-                zorder=4,
-            )
-            ax.text(
-                0.08,
-                ypos,
-                f"skipped (n={int(row['n_ffn'])}/{int(row['n_pcn'])})",
-                va="center",
-                ha="left",
-                fontsize=7,
-                color="#777777",
-            )
             continue
 
         mean = float(row["diff_mean_pcn_minus_ffn"])
@@ -175,8 +270,6 @@ def plot_difference_forest(
         for act in ACTIVATION_ORDER
     ]
     labels = [ACTIVATION_LABELS[act] for act in ACTIVATION_ORDER]
-    handles.append(Line2D([0], [0], color="#777777", marker="x", linestyle="none", markersize=5))
-    labels.append("Skipped group")
     ax.legend(
         handles,
         labels,
@@ -184,7 +277,7 @@ def plot_difference_forest(
         frameon=False,
         loc="upper center",
         bbox_to_anchor=(0.5, 1.065),
-        ncol=4,
+        ncol=3,
         columnspacing=1.1,
         handlelength=1.6,
     )
@@ -290,7 +383,6 @@ def plot_bootstrap_density_grid(
             sub = trials[(trials["arch"] == arch) & (trials["activation"] == activation)]
             row = summary_lookup.get((arch, activation))
             if sub.empty or row is None:
-                ax.text(0.5, 0.5, "skipped", ha="center", va="center", color="#777777", transform=ax.transAxes)
                 ax.set_axis_off()
                 continue
 
@@ -331,8 +423,6 @@ def plot_difference_heatmap(
             val = matrix.loc[activation, arch]
             if np.isfinite(val):
                 ax.text(x, y, f"{val:.2f}", ha="center", va="center", color="white", fontsize=8, fontweight="bold")
-            else:
-                ax.text(x, y, "skip", ha="center", va="center", color="#333333", fontsize=8)
 
     ax.set_xticks(range(len(ARCH_ORDER)))
     ax.set_xticklabels(ARCH_ORDER, rotation=30, ha="right")
@@ -348,8 +438,7 @@ def plot_difference_heatmap(
 
 def write_figure_notes(summary: pd.DataFrame, output_dir: Path) -> None:
     valid = valid_summary(summary)
-    skipped = ordered_summary(summary)
-    skipped = skipped[~skipped["status"].isin(["ok", "ok_unequal_n"])]
+    unequal = valid[valid["status"] == "ok_unequal_n"]
     min_low = valid["diff_ci_low_95"].min()
     max_high = valid["diff_ci_high_95"].max()
     min_fraction = valid["fraction_pcn_gt_ffn"].min()
@@ -361,17 +450,17 @@ def write_figure_notes(summary: pd.DataFrame, output_dir: Path) -> None:
         "- It directly shows the estimand used in the experiment: mean COM difference, PCN - FFN.",
         "- It shows uncertainty with 95% bootstrap confidence intervals.",
         "- It makes the zero/no-difference reference explicit.",
-        "- It avoids bar-only summaries and keeps skipped/incomplete groups visible.",
+        "- It avoids bar-only summaries and keeps all available architecture/activation groups visible.",
         "",
         f"Valid comparisons: {len(valid)} of {len(summary)} architecture/activation groups.",
         f"All valid 95% CIs are above zero: lowest lower CI = {min_low:.3f}, highest upper CI = {max_high:.3f}.",
         f"Minimum bootstrap fraction with PCN > FFN among valid groups = {min_fraction:.3f}.",
     ]
-    if not skipped.empty:
+    if not unequal.empty:
         lines.append("")
-        lines.append("Skipped groups:")
-        for _, row in skipped.iterrows():
-            lines.append(f"- {row['arch']} / {row['activation']}: {row['skip_reason']}")
+        lines.append("Unequal-n groups bootstrapped from available seed-level values:")
+        for _, row in unequal.iterrows():
+            lines.append(f"- {row['arch']} / {row['activation']}: n_ffn={int(row['n_ffn'])}, n_pcn={int(row['n_pcn'])}")
 
     (output_dir / "figure_notes.txt").write_text("\n".join(lines) + "\n")
 
@@ -388,6 +477,18 @@ def build_parser() -> argparse.ArgumentParser:
         default="pdf,svg,png",
         help="Comma-separated output formats supported by matplotlib.",
     )
+    parser.add_argument(
+        "--n-bootstrap",
+        type=int,
+        default=10_000,
+        help="Bootstrap iterations used only when filling older skipped rows from seed_level_com.csv.",
+    )
+    parser.add_argument(
+        "--bootstrap-seed",
+        type=int,
+        default=42,
+        help="Random seed used only when filling older skipped rows from seed_level_com.csv.",
+    )
     return parser
 
 
@@ -398,6 +499,13 @@ def main() -> None:
     set_style()
 
     summary, seed_level, trials = load_results(args.results_root)
+    summary, trials = complete_available_comparisons(
+        summary,
+        seed_level,
+        trials,
+        n_bootstrap=args.n_bootstrap,
+        bootstrap_seed=args.bootstrap_seed,
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     plot_difference_forest(summary, output_dir, formats)

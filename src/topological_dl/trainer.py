@@ -1,6 +1,6 @@
 """The implementation is split across smaller modules:
 
-- ``pcn_backend``: PCX/PCX2 backend imports and shared dependencies.
+- ``pcn_backend``: PCX backend imports and shared dependencies.
 - ``datasets``: dataset loading helpers.
 - ``pcn_model``: model definition and energy functions.
 - ``pcn_training``: batch training, evaluation, and optimizers.

@@ -33,7 +33,7 @@ Edit `config/local_config.json` so that:
 - `data_dir` points to downloaded or generated datasets.
 - `results_dir` points to trained models, persistent-homology outputs, and
   derived results.
-- `pcx_dir` or `pcx2_dir` points to the corresponding predictive-coding
+- `pcx_dir` points to the predictive-coding
   library checkout if it is not installed as a package.
 
 Do not commit `config/local_config.json`; it is intentionally ignored by git.

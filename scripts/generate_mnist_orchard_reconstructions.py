@@ -55,7 +55,6 @@ class Config:
     hidden_dims: tuple[int, int] = (600, 600)
     act: str = "tanh"  # "tanh" or "relu"
     residual: bool = False
-    untie_feedback_weights: bool = True
 
     # Orchard & Sun decay coefficients
     l2_w: float = 5e-5
@@ -118,7 +117,6 @@ def train_pcn(cfg: Config):
         act_fn=act_fn,
         act_name=act_name,
         residual=cfg.residual,
-        untie_feedback_weights=cfg.untie_feedback_weights,
         epochs=cfg.epochs,
         batch_size=cfg.batch_size,
         T_infer=cfg.T_infer,
@@ -161,7 +159,6 @@ def build_orchard_sun_run_id(config: Config) -> str:
         f"_l2w{_fmt_float_for_fname(float(config.l2_w))}"
         f"_l2x{_fmt_float_for_fname(float(config.l2_x))}"
         f"_l2h{_fmt_float_for_fname(float(config.l2_h))}"
-        f"_ufb{int(bool(config.untie_feedback_weights))}"
         f"_res{int(bool(config.residual))}"
         f"_seed{int(config.seed)}"
     )
@@ -191,7 +188,6 @@ def load_trained_model(cfg: Config):
         l2_w=cfg.l2_w,
         l2_x=cfg.l2_x,
         l2_h=cfg.l2_h,
-        untie_feedback_weights=cfg.untie_feedback_weights,
     )
     with trainer_mod.pxu.step(model, trainer_mod.pxc.STATUS.INIT, clear_params=trainer_mod.pxc.VodeParam.Cache):
         trainer_mod.forward(jnp.zeros((cfg.batch_size, input_dim)), None, model=model)
@@ -257,7 +253,6 @@ def run(cfg: Config | None = None) -> None:
     cfg = Config(
         out_dir="./runs/os_mnist",
         seed=0,
-        untie_feedback_weights=True,
         l2_w=5e-5,
         l2_x=5e-4,
         l2_h=5e-4,

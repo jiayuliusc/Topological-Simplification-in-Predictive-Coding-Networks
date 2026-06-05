@@ -3,7 +3,5 @@
   "data_dir": "/path/to/project/root/data",
   "results_dir": "/path/to/project/root/results",
   "pcx_dir": "/path/to/pcx",
-  "pcx2_dir": "/path/to/pcx2",
-  "ripser_plusplus_dir": "/path/to/ripser-plusplus",
-  "use_pcx2": false
+  "ripser_plusplus_dir": "/path/to/ripser-plusplus"
 }

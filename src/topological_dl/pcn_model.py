@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 try:
-    from .pcn_backend import USE_PCX2, jax, jnp, px, pxc, pxnn, pxf, pxu
+    from .pcn_backend import jax, jnp, px, pxc, pxnn, pxf, pxu
 except ImportError:
-    from pcn_backend import USE_PCX2, jax, jnp, px, pxc, pxnn, pxf, pxu
+    from pcn_backend import jax, jnp, px, pxc, pxnn, pxf, pxu
 
 
 class Model(pxc.EnergyModule):
@@ -19,8 +19,7 @@ class Model(pxc.EnergyModule):
         residual=False,
         l2_w=0.0,
         l2_x=0.0,
-        l2_h=0.0,
-        untie_feedback_weights=False
+        l2_h=0.0
     ):
         super().__init__()
 
@@ -36,45 +35,29 @@ class Model(pxc.EnergyModule):
         model_rkg = px.RandomKeyGenerator(model_seed)
 
         # Input projection layer
-        if USE_PCX2:
-            self.input_layer = pxnn.Linear(input_dim, hidden_dims[0], rkg=model_rkg, untie_feedback_weights=untie_feedback_weights)
-        else:
-            self.input_layer = pxnn.Linear(input_dim, hidden_dims[0], rkg=model_rkg)
+        self.input_layer = pxnn.Linear(input_dim, hidden_dims[0], rkg=model_rkg)
 
         # Hidden layers
         self.hidden_layers = []
         for i in range(len(hidden_dims) - 1):
-            if USE_PCX2:
-                self.hidden_layers.append(
-                    pxnn.Linear(hidden_dims[i], hidden_dims[i + 1], rkg=model_rkg, untie_feedback_weights=untie_feedback_weights)
-                )
-            else:
-                self.hidden_layers.append(
-                    pxnn.Linear(hidden_dims[i], hidden_dims[i + 1], rkg=model_rkg)
-                )
+            self.hidden_layers.append(
+                pxnn.Linear(hidden_dims[i], hidden_dims[i + 1], rkg=model_rkg)
+            )
 
         # Projection shortcuts for mismatched dims
         self.projections = []
         for i in range(len(hidden_dims) - 1):
             if residual and hidden_dims[i] != hidden_dims[i + 1]:
                 # learnable projection
-                if USE_PCX2:
-                    self.projections.append(
-                        pxnn.Linear(hidden_dims[i], hidden_dims[i + 1], rkg=model_rkg, untie_feedback_weights=untie_feedback_weights)
-                    )
-                else:
-                    self.projections.append(
-                        pxnn.Linear(hidden_dims[i], hidden_dims[i + 1], rkg=model_rkg)
-                    )
+                self.projections.append(
+                    pxnn.Linear(hidden_dims[i], hidden_dims[i + 1], rkg=model_rkg)
+                )
             else:
                 # no projection needed (identity)
                 self.projections.append(None)
 
         # Output layer
-        if USE_PCX2:
-            self.output_layer = pxnn.Linear(hidden_dims[-1], output_dim, rkg=model_rkg, untie_feedback_weights=untie_feedback_weights)
-        else:
-            self.output_layer = pxnn.Linear(hidden_dims[-1], output_dim, rkg=model_rkg)
+        self.output_layer = pxnn.Linear(hidden_dims[-1], output_dim, rkg=model_rkg)
 
         # Layer normalization for each hidden layer
         self.layer_norms = []

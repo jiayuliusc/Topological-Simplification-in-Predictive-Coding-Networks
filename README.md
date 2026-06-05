@@ -48,7 +48,7 @@ The `trainer.py` module is kept as a compatibility wrapper. The implementation
 is split across smaller files:
 
 - `data_loading.py`: dataset loaders.
-- `pcn_backend.py`: PCX/PCX2 backend imports and shared dependencies.
+- `pcn_backend.py`: PCX backend imports and shared dependencies.
 - `pcn_model.py`: PCN model and energy functions.
 - `pcn_training.py`: training and evaluation loops.
 - `trainer_impl.py`: `Trainer` class methods and analysis utilities.
@@ -67,12 +67,10 @@ You can also set paths with environment variables:
 - `TDL_DATA_DIR`
 - `TDL_RESULTS_DIR`
 - `TDL_PCX_DIR`
-- `TDL_PCX2_DIR`
 - `TDL_RIPSER_PLUSPLUS_DIR`
-- `TDL_USE_PCX2`
 
 `config/local_config.json` is ignored by git. Use it for machine-specific paths
-such as dataset folders, result folders, and local PCX/PCX2 checkouts.
+such as dataset folders, result folders, and local PCX checkouts.
 
 ## Environment
 
@@ -87,8 +85,8 @@ python -m pip install -e ".[pcn]"       # PCN trainer utilities
 python -m pip install -e ".[dev]"       # tests and linting
 ```
 
-PCN training depends on `pcx` or `pcx2`. If those packages are not installed,
-set `TDL_PCX_DIR` or `TDL_PCX2_DIR`, or add the path in
+PCN training depends on `pcx`. If that package is not installed,
+set `TDL_PCX_DIR`, or add the path in
 `config/local_config.json`.
 
 ## COM comparison

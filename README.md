@@ -22,7 +22,6 @@ The main code path compares PCNs and FFNs by:
 │   ├── artifact_manifest_template.csv
 │   ├── data.md
 │   ├── methods_to_code.md
-│   ├── release_checklist.md
 │   └── replication.md
 ├── notebooks/
 │   └── README.md
@@ -141,7 +140,5 @@ COM difference `PCN - FFN` with 95% bootstrap confidence intervals.
 
 ## Citation and license
 
-`CITATION.cff` is a placeholder. Update it with the final author list and
-arXiv/DOI information before public release.
-
-Add a license before making the repository public.
+Citation metadata for the TAG-DS 2026 paper is provided in `CITATION.cff`.
+This repository is released under the MIT license.

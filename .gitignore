@@ -16,3 +16,4 @@ models/
 *.pt
 optimization.db
 /com_comparison_figures/
+PRIVATE_RELEASE_CHECKLIST.md

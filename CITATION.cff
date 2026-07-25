@@ -1,11 +1,39 @@
 cff-version: 1.2.0
-message: "If you use this repository, please cite the associated arXiv paper once available."
+message: "If you use this repository, please cite the associated TAG-DS 2026 paper."
 title: "Topological Simplification in Predictive Coding Networks"
 type: software
 repository-code: "https://github.com/jiayuliusc/Topological-Simplification-in-Predictive-Coding-Networks"
 abstract: "Code for analyzing topological simplification in predictive coding and feedforward neural networks."
 authors:
-  - family-names: "TBD"
-    given-names: "TBD"
-date-released: "2026-05-30"
+  - family-names: "Shaw"
+    given-names: "Adam"
+  - family-names: "Li"
+    given-names: "Jiayu"
+  - family-names: "Sperling"
+    given-names: "Michael"
+  - family-names: "Kim"
+    given-names: "Michael"
+  - family-names: "Jin"
+    given-names: "Alvin"
+date-released: "2026-07-25"
 version: "0.1.0"
+preferred-citation:
+  type: conference-paper
+  title: "Topological Simplification in Predictive Coding Networks"
+  authors:
+    - family-names: "Shaw"
+      given-names: "Adam"
+    - family-names: "Li"
+      given-names: "Jiayu"
+    - family-names: "Sperling"
+      given-names: "Michael"
+    - family-names: "Kim"
+      given-names: "Michael"
+    - family-names: "Jin"
+      given-names: "Alvin"
+  conference:
+    name: "2nd Annual Conference on Topology, Algebra, and Geometry in Data Science (TAG-DS) 2026"
+    date-start: "2026-08-18"
+    date-end: "2026-08-20"
+    location: "Northeastern University, Boston, MA, USA"
+  year: 2026

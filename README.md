@@ -140,5 +140,7 @@ COM difference `PCN - FFN` with 95% bootstrap confidence intervals.
 
 ## Citation and license
 
+The paper is available on arXiv:
+[arXiv:2608.02816](https://arxiv.org/abs/2608.02816).
 Citation metadata for the TAG-DS 2026 paper is provided in `CITATION.cff`.
 This repository is released under the MIT license.
